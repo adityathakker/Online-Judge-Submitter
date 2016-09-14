@@ -1,5 +1,7 @@
 import cookielib
+import urllib2
 
+from termcolor import colored
 import mechanize
 import os.path
 import getpass
@@ -7,6 +9,8 @@ import pickle
 from bs4 import BeautifulSoup
 import os
 
+
+# Todo: Comment about last changes in login function
 
 class CodeChef:
     OJ_NAME = "CodeChef"
@@ -40,20 +44,54 @@ class CodeChef:
             cookies_jar.load(self.COOKIES_FILE_NAME, ignore_discard=False, ignore_expires=False)
             self.browser.set_cookiejar(cookies_jar)
 
-        # opening browser and enter input to form
-        self.browser.open("https://www.codechef.com/")
+        try:
+            # opening browser and enter input to form
+            self.browser.open("https://www.codechef.com/")
+        except (mechanize.HTTPError, urllib2.HTTPError) as e:
+            print(colored("Something Went Wrong", "red"))
+            print(colored("Trying Again...", "red"))
+            self.login()
+            return
 
         # creating soup object to check if already logged-in or not
         soup = BeautifulSoup(self.browser.response().read(), "lxml")
         login_li = soup.findAll("li", {"class": "loggedin-user"})
         if len(login_li) > 0:
             # Already Logged In
+            print(colored("You Are Already Logged In", "green"))
 
             # for debug
             self.save_file("login_already.html", self.browser.response().read())
 
-            print("You Are Already Logged In")
-            return
+            if "limit" in str(soup.title).lower():
+                print(colored("Session Limit Exceeded...", "yellow"))
+                print(colored("Do you want to terminate other sessions [y/n]: ", "yellow"))
+                ans = raw_input()
+
+                if ans == "y":
+                    while "limit" in str(soup.title).lower():
+                        try:
+                            self.browser.select_form(nr=0)
+                            self.browser.form.set_all_readonly(False)
+
+                            radio_value = str()
+                            for control in self.browser.form.controls:
+                                if control.type == "radio" and "current" not in str(
+                                        [label.text for label in control.items[0].get_labels()]):
+                                    radio_value = control.items[0].name
+                                    break
+
+                            self.browser.form.set_value([radio_value], name='sid')
+                            self.browser.submit()
+                            soup = BeautifulSoup(self.browser.response().read(), "lxml")
+                        except (mechanize.HTTPError, urllib2.HTTPError) as e:
+                            print(colored("Something Went Wrong", "red"))
+                            print(colored("Trying Again...", "red"))
+                            pass
+
+                else:
+                    exit()
+
         else:
             # Not Logged In
 
@@ -65,17 +103,23 @@ class CodeChef:
             # getting credentials
             credentials_dict = pickle.load(open(self.CREDENTIALS_FILE_NAME, "r"))
 
-            self.browser.set_cookiejar(cookies_jar)
-            self.browser.select_form(nr=0)
-            self.browser.form['name'] = credentials_dict["username"]
-            self.browser.form['pass'] = credentials_dict["password"]
-            self.browser.submit()
+            try:
+                self.browser.set_cookiejar(cookies_jar)
+                self.browser.select_form(nr=0)
+                self.browser.form['name'] = credentials_dict["username"]
+                self.browser.form['pass'] = credentials_dict["password"]
+                self.browser.submit()
+            except (mechanize.HTTPError, urllib2.HTTPError) as e:
+                print(colored("Something Went Wrong", "red"))
+                print(colored("Trying Again...", "red"))
+                self.login()
+                return
 
             # create soup object to check if login was success or not
             soup = BeautifulSoup(self.browser.response().read(), "lxml")
             error_div = soup.findAll("input", {"class": "error"})
             if len(error_div) > 0:
-                print("Entered Username/Password is Wrong\nPlease Enter Credentials Again.")
+                print(colored("Entered Username/Password is Wrong\nPlease Enter Credentials Again.", "yellow"))
 
                 # for debug
                 self.save_file("login_fail.html", self.browser.response().read())
@@ -86,10 +130,39 @@ class CodeChef:
             else:
                 cookies_jar.save(self.COOKIES_FILE_NAME, ignore_discard=False, ignore_expires=False)
 
+                if "limit" in str(soup.title).lower():
+                    print(colored("Session Limit Exceeded...", "yellow"))
+                    print(colored("Do you want to terminate other sessions [y/n]: ", "yellow"))
+                    ans = raw_input()
+
+                    if ans == "y":
+                        while "limit" in str(soup.title).lower():
+                            try:
+                                self.browser.select_form(nr=0)
+                                self.browser.form.set_all_readonly(False)
+
+                                radio_value = str()
+                                for control in self.browser.form.controls:
+                                    if control.type == "radio" and "current" not in str(
+                                            [label.text for label in control.items[0].get_labels()]):
+                                        radio_value = control.items[0].name
+                                        break
+
+                                self.browser.form.set_value([radio_value], name='sid')
+                                self.browser.submit()
+                                soup = BeautifulSoup(self.browser.response().read(), "lxml")
+                            except (mechanize.HTTPError, urllib2.HTTPError) as e:
+                                print(colored("Something Went Wrong", "red"))
+                                print(colored("Trying Again...", "red"))
+                                pass
+
+                    else:
+                        exit()
+
                 # for debug
                 self.save_file("login_success.html", self.browser.response().read())
 
-                print("Login Was Successful")
+                print(colored("Login Was Successful", "green"))
                 return
 
     def get_languages(self):

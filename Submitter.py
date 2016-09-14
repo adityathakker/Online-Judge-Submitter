@@ -1,3 +1,7 @@
+import urllib2
+
+from termcolor import colored
+
 from CodeChef import CodeChef
 import mechanize
 
