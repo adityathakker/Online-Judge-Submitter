@@ -197,7 +197,7 @@ class CodeChef:
                 history_dict = pickle.load(history_file)
                 if not history_dict["ALL_WENT_WELL"]:
                     resubmit = raw_input(colored("Do you want to resubmit? [Y/N]: ", "blue"))
-                    if resubmit == "Y":
+                    if resubmit == "Y" or resubmit == "y":
                         self.__submit_solution(history_dict["PROBLEM_CODE"], history_dict["SOLUTION_PATH"], history_dict["LANGUAGE_VALUE"])
                         return
         except IOError, e:
