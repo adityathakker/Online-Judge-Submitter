@@ -16,6 +16,7 @@ import os
 class CodeChef:
     OJ_NAME = "CodeChef"
     CREDENTIALS_FILE_NAME = OJ_NAME + "_credentials"
+    HISTORY_FILE_NAME = OJ_NAME + "_history"
     COOKIES_FILE_NAME = OJ_NAME + "_cookies"
     browser = mechanize.Browser()
 
@@ -190,6 +191,18 @@ class CodeChef:
         return language_value
 
     def __submit_solution(self, problem_code="", solution_path="", language_value=-1):
+        try:
+            if not problem_code.strip or not solution_path.strip() or language_value == -1:
+                history_file = open(self.HISTORY_FILE_NAME, "r")
+                history_dict = pickle.load(history_file)
+                if not history_dict["ALL_WENT_WELL"]:
+                    resubmit = raw_input(colored("Do you want to resubmit? [Y/N]: ", "blue"))
+                    if resubmit == "Y":
+                        self.__submit_solution(history_dict["PROBLEM_CODE"], history_dict["SOLUTION_PATH"], history_dict["LANGUAGE_VALUE"])
+                        return
+        except IOError, e:
+            pass
+
         if not problem_code.strip():
             # get problem code from user
             problem_code = raw_input(colored("Enter Problems Code: ", "blue"))
@@ -204,6 +217,18 @@ class CodeChef:
 
         if language_value == -1:
             language_value = self.get_language_input()
+
+        # Saving the current submittion in history
+        history_file = open(self.HISTORY_FILE_NAME, "wb")
+        history_file.seek(0)
+        history_file.truncate()
+        history_dict = dict()
+        history_dict["PROBLEM_CODE"] = problem_code
+        history_dict["SOLUTION_PATH"] = solution_path
+        history_dict["LANGUAGE_VALUE"] = language_value
+        pickle.dump(history_dict, history_file);
+        history_file.close()
+
 
         print(colored("\nSubmitting Solution to CodeChef...Wait a Sec", "green"))
 
@@ -266,25 +291,43 @@ class CodeChef:
                     all_td = tr.find_all("td")
                     if str(all_td[2].text).strip() == credentials_dict["username"]:
                         found = True
-                        print(colored("\nResult: ", "white"))
-                        print(colored("ID: ", "blue") + colored(str(all_td[0].text), "white"))
-                        print(colored("Date/Time: ", "blue") + colored(str(all_td[1].text), "white"))
-                        print(colored("User: ", "blue") + colored(str(all_td[2].text), "white"))
+                        print(colored("\n++++++++++++++Result++++++++++++++","white"))
+                        print(colored("\tID: ", "blue") + colored(str(all_td[0].text), "white"))
+                        print(colored("\tDate/Time: ", "blue") + colored(str(all_td[1].text), "white"))
+                        print(colored("\tUser: ", "blue") + colored(str(all_td[2].text), "white"))
+
+                        all_went_well = True
 
                         span = all_td[3].find("span")
                         img = span.find("img")
                         if "alert" in str(img["src"]):
-                            print(colored("Result: ", "blue") + colored("Compilation Error", "yellow"))
+                            all_went_well = False
+                            print(colored("\tResult: ", "blue") + colored("Compilation Error", "yellow"))
                         elif "clock" in str(img["src"]):
-                            print(colored("Result: ", "blue") + colored("Timeout Error", "yellow"))
+                            all_went_well = False
+                            print(colored("\tResult: ", "blue") + colored("Timeout Error", "yellow"))
                         elif "tick" in str(img["src"]):
-                            print(colored("Result: ", "blue") + colored("Accepted", "green"))
+                            print(colored("\tResult: ", "blue") + colored("Accepted", "green"))
                         elif "runtime" in str(img["src"]):
-                            print(colored("Result: ", "blue") + colored("Runtime Error", "red"))
+                            all_went_well = False
+                            print(colored("\tResult: ", "blue") + colored("Runtime Error", "red"))
+                        elif "cross" in str(img["src"]):
+                            all_went_well = False
+                            print(colored("\tResult: ", "blue") + colored("Wrong Answer", "red"))
 
-                        print(colored("Time: ", "blue") + colored(str(all_td[4].text), "white"))
-                        print(colored("Memory: ", "blue") + colored(str(all_td[5].text), "white"))
-                        print(colored("Language: ", "blue") + colored(str(all_td[6].text), "white"))
+                        print(colored("\tTime: ", "blue") + colored(str(all_td[4].text), "white"))
+                        print(colored("\tMemory: ", "blue") + colored(str(all_td[5].text), "white"))
+                        print(colored("\tLanguage: ", "blue") + colored(str(all_td[6].text), "white"))
+                        
+
+                        history_file = open(self.HISTORY_FILE_NAME, "r+")
+                        history_dict = pickle.load(history_file)
+                        history_dict["ALL_WENT_WELL"] = all_went_well
+                        history_file.seek(0)
+                        history_file.truncate()
+                        pickle.dump(history_dict, history_file)
+                        history_file.close()
+                        
                         break
 
         except (mechanize.HTTPError, urllib2.HTTPError) as e:
