@@ -190,29 +190,40 @@ class CodeChef:
 
         return language_value
 
-    def __submit_solution(self, problem_code="", solution_path="", language_value=-1):
+    def __submit_solution(self, problem_code="", contest_code="", solution_path="", language_value=-1):
         try:
-            if not problem_code.strip or not solution_path.strip() or language_value == -1:
+            if not problem_code.strip or not contest_code.strip() or not solution_path.strip() or language_value == -1:
                 history_file = open(self.HISTORY_FILE_NAME, "r")
                 history_dict = pickle.load(history_file)
                 if not history_dict["ALL_WENT_WELL"]:
                     resubmit = raw_input(colored("Do you want to resubmit? [Y/N]: ", "blue"))
                     if resubmit == "Y" or resubmit == "y":
-                        self.__submit_solution(history_dict["PROBLEM_CODE"], history_dict["SOLUTION_PATH"], history_dict["LANGUAGE_VALUE"])
+                        self.__submit_solution(history_dict["PROBLEM_CODE"], history_dict["CONTEST_CODE"], history_dict["SOLUTION_PATH"], history_dict["LANGUAGE_VALUE"])
                         return
         except IOError, e:
+            pass
+        except Exception, e:
             pass
 
         if not problem_code.strip():
             # get problem code from user
             problem_code = raw_input(colored("Enter Problems Code: ", "blue"))
 
+        if not contest_code.strip():
+            contest_code = raw_input(colored("Is it for a contest? [If Yes, Enter Contest Code/Else leave BLANK]: ", "blue"))
+            # print(contest_code)
+            # print(contest_code.strip())
+            if contest_code.strip():
+                contest_code = contest_code + "/"
+            else:
+                contest_code = ''
+
         if not solution_path.strip():
             solution_path = raw_input(colored("Enter Solution Files Path (with extension): ", "blue"))
             solution_path = os.path.abspath(solution_path)
             if not os.path.isfile(solution_path):
                 print(colored("Invalid File Path! Enter Again...", "red"))
-                self.__submit_solution(problem_code=problem_code)
+                self.__submit_solution(problem_code=problem_code, contest_code=contest_code)
                 return
 
         if language_value == -1:
@@ -226,6 +237,7 @@ class CodeChef:
         history_dict["PROBLEM_CODE"] = problem_code
         history_dict["SOLUTION_PATH"] = solution_path
         history_dict["LANGUAGE_VALUE"] = language_value
+        history_dict["CONTEST_CODE"] = contest_code
         pickle.dump(history_dict, history_file);
         history_file.close()
 
@@ -234,7 +246,9 @@ class CodeChef:
 
         try:
             print(colored("Uploading Solution...", "yellow"))
-            self.browser.open("https://www.codechef.com/submit/" + problem_code)
+            url = "https://www.codechef.com/" + contest_code + "submit/" + problem_code
+            # print(url)
+            self.browser.open(url)
 
             soup = BeautifulSoup(self.browser.response().read(), "lxml")
             if "error" in str(soup.title).lower():
@@ -272,7 +286,7 @@ class CodeChef:
             while not found:
                 try:
                     # check if the solution was success
-                    self.browser.open("https://www.codechef.com/status/" + problem_code)
+                    self.browser.open("https://www.codechef.com/" + contest_code + "status/" + problem_code)
                 except (mechanize.HTTPError, urllib2.HTTPError) as e:
                     print(colored("Something Went Wrong", "red"))
                     print(colored("Trying Again...", "red"))
@@ -333,7 +347,7 @@ class CodeChef:
         except (mechanize.HTTPError, urllib2.HTTPError) as e:
             print(colored("Something Went Wrong", "red"))
             print(colored("Trying Again...", "red"))
-            self.__submit_solution(problem_code=problem_code, solution_path=solution_path, language_value=language_value)
+            self.__submit_solution(problem_code=problem_code, contest_code=contest_code, solution_path=solution_path, language_value=language_value)
             return
 
     def submit(self):
